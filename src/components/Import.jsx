@@ -23,7 +23,8 @@ import { parseWithMapping } from '../utils/parsers/csv.js'
 import { deduplicate, CATEGORIES } from '../utils/parser.js'
 import { C, S, fmt, fmtD } from '../theme.js'
 import { KEY_CONSENT, KEY_CSV_MAPPINGS, PACK_FRANCE } from '../constants.js'
-import MappingUI from './MappingUI.jsx'
+import MappingUI    from './MappingUI.jsx'
+import ResetButton  from './ResetButton.jsx'
 
 
 

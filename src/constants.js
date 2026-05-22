@@ -29,9 +29,8 @@ export const KEY_CSV_MAPPINGS = 'financeapp_csv_mappings'
  *  v1 (initial) → transactions + profil de base
  *  v2           → comptes PEA + mode partage couple
  *  v3           → profil étendu (banque, devise, langue) + compteId + customRules enrichies
- *  v4           → profile._onboardingDone (flag onboarding, évite re-affichage pour utilisateurs existants)
  */
-export const SCHEMA_VERSION = 4
+export const SCHEMA_VERSION = 3
 
 // ─── Options de mapping CSV ───────────────────────────────────────────────────
 /**

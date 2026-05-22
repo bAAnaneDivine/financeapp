@@ -100,16 +100,6 @@ function migrateState(d) {
     d._v = 3
   }
 
-  if (v < 4) {
-    // Marque les utilisateurs existants comme ayant déjà fait l'onboarding
-    // — évite de leur afficher l'onboarding à nouveau après la mise à jour
-    d.profile = d.profile || {}
-    if (!d.profile._onboardingDone) {
-      d.profile._onboardingDone = (d.transactions && d.transactions.length > 0) || !!d.profile.nom
-    }
-    d._v = 4
-  }
-
   return d
 }
 
@@ -446,7 +436,8 @@ export default function App() {
     </div>
   )
 
-  if (!state.profile?._onboardingDone) return <Onboarding onDone={(profile) => { onProfile({ ...profile, _onboardingDone: true }) }} onSetApiKey={onSetApiKey} />
+  const isNewUser = !state.transactions?.length && !state.profile?.nom && !state.profile?.banque
+  if (isNewUser) return <Onboarding onDone={(profile) => { onProfile({ ...profile, _onboardingDone: true }) }} onSetApiKey={onSetApiKey} />
 
   // ── Navigation principale ────────────────────────────────────────────────────
 
