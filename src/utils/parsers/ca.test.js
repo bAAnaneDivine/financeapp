@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parseCA } from './ca.js'
-import { cleanLibelle, categorize, makeId } from '../parser.js'
+import { cleanLibelle, cleanLibelleCA, cleanLibelleGeneric, categorize, makeId } from '../parser.js'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function fmtMontant(n) {
@@ -179,5 +179,71 @@ describe('categorize', () => {
     const rules = [{ id: 'r1', pattern: 'her\\w+', isRegex: true, actif: true, cat: 'logement', sub: 'Loyer' }]
     const { cat } = categorize('Hergibo loyer', false, rules)
     expect(cat).toBe('logement')
+  })
+
+  // ── IB1 — Crédits non-salariaux ──────────────────────────────────────────────
+  it('IB1 : remboursement crédit → famille/Remboursement reçu', () => {
+    const r = categorize('Remboursement CB Décathlon', true)
+    expect(r.cat).toBe('famille')
+    expect(r.sub).toBe('Remboursement reçu')
+  })
+  it('IB1 : retour crédit → famille/Remboursement reçu', () => {
+    const r = categorize('Retour article Amazon', true)
+    expect(r.cat).toBe('famille')
+    expect(r.sub).toBe('Remboursement reçu')
+  })
+  it('IB1 : avoir crédit → famille/Remboursement reçu', () => {
+    const r = categorize('Avoir boutique Fnac', true)
+    expect(r.cat).toBe('famille')
+    expect(r.sub).toBe('Remboursement reçu')
+  })
+  it('IB1 : CPAM crédit → famille/Remboursement reçu', () => {
+    const r = categorize('CPAM remb pharmacie', true)
+    expect(r.cat).toBe('famille')
+    expect(r.sub).toBe('Remboursement reçu')
+  })
+  it('IB1 : virement entrant normal reste revenus', () => {
+    const r = categorize('Virement Rhapsody salaire', true)
+    expect(r.cat).toBe('revenus')
+  })
+  it('IB1 : salaire sans mot-clé remboursement → revenus', () => {
+    const r = categorize('Soc Generale virement mensuel', true)
+    expect(r.cat).toBe('revenus')
+  })
+
+  // ── IB2 — PayPal crédit ──────────────────────────────────────────────────────
+  it('IB2 : PayPal débit → non_categorise/PayPal opaque', () => {
+    const r = categorize('PAYPAL *EBAY', false)
+    expect(r.cat).toBe('non_categorise')
+    expect(r.sub).toBe('PayPal opaque')
+  })
+  it('IB2 : PayPal crédit → famille/Remboursement reçu', () => {
+    const r = categorize('PAYPAL *EBAY', true)
+    expect(r.cat).toBe('famille')
+    expect(r.sub).toBe('Remboursement reçu')
+  })
+  it('IB2 : PayPal crédit confiance medium', () => {
+    const r = categorize('PAYPAL *FNAC', true)
+    expect(r.confidence).toBe('medium')
+  })
+})
+
+// ── IB3 — cleanLibelle CA-only ──────────────────────────────────────────────
+describe('cleanLibelleCA vs cleanLibelleGeneric', () => {
+  it('cleanLibelleCA supprime les artefacts CA (date carte)', () => {
+    expect(cleanLibelleCA('Carrefour 20/03')).toBe('Carrefour')
+  })
+  it('cleanLibelleCA supprime référence MANDAT SEPA accolée', () => {
+    // Format réel CA : MANDAT suivi du code SEPA sans espace (ex: MANDATFR81EAU10...)
+    expect(cleanLibelleCA('Free Telecom MANDATFR81EAU10000D01')).toBe('Free Telecom')
+  })
+  it('cleanLibelleGeneric NE supprime PAS la date (libellé Gemini déjà propre)', () => {
+    expect(cleanLibelleGeneric('Carrefour 20/03')).toBe('Carrefour 20/03')
+  })
+  it('cleanLibelleGeneric supprime quand même le préfixe CARTE X', () => {
+    expect(cleanLibelleGeneric('Carte X4567 Spotify')).toBe('Spotify')
+  })
+  it('cleanLibelle (routeur compat) appelle cleanLibelleCA', () => {
+    expect(cleanLibelle('Carrefour 20/03')).toBe('Carrefour')
   })
 })

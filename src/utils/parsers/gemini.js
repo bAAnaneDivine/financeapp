@@ -1,4 +1,4 @@
-import { categorize, cleanLibelle, makeId, computeIsExceptionnel } from '../parser.js'
+import { categorize, cleanLibelleGeneric, makeId, computeIsExceptionnel } from '../parser.js'
 import { extractGenericPdfText } from './pdf-extract.js'
 import { readFileText, xlsxToText } from './csv.js'
 
@@ -139,7 +139,7 @@ export async function parseWithGemini(file, apiKey, userConfig = {}, customRules
     const libelleRaw = String(t.label).trim()
     if (!libelleRaw) continue
 
-    const libelle = cleanLibelle(libelleRaw)
+    const libelle = cleanLibelleGeneric(libelleRaw)
     const catRes  = categorize(libelleRaw, isCredit, customRules, userConfig.nom || '')
     const id      = makeId(t.date, libelleRaw, String(montant))
 

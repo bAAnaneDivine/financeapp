@@ -135,8 +135,11 @@ export function computeIsExceptionnel(montantAbs, cat, sub) {
  * @returns {{ cat: string, sub: string, confidence: 'high'|'medium'|'low' }}
  */
 export function categorize(libelleRaw, isCredit, customRules = [], userFullName = '') {
-  if (/paypal/i.test(libelleRaw))
+  // IB2 — PayPal crédit = remboursement, pas un revenu
+  if (/paypal/i.test(libelleRaw)) {
+    if (isCredit) return { cat: 'famille', sub: 'Remboursement reçu', confidence: 'medium' }
     return { cat: 'non_categorise', sub: 'PayPal opaque', confidence: 'low' }
+  }
   if (/ret dab|retrait/i.test(libelleRaw))
     return { cat: 'non_categorise', sub: 'Espèces', confidence: 'medium' }
   // Virements entre comptes propres — détectés via le nom configuré par l'utilisateur
@@ -145,6 +148,9 @@ export function categorize(libelleRaw, isCredit, customRules = [], userFullName 
     if (new RegExp(escaped, 'i').test(libelleRaw))
       return { cat: 'virement_interne', sub: 'Entre mes comptes', confidence: 'high' }
   }
+  // IB1 — Crédits non-salariaux (remboursements, retours, avoirs) avant le fallback revenus
+  if (isCredit && /remboursement|retour\s|avoir\s|rembours\.|cpam|ameli|mutuelle.*remb/i.test(libelleRaw))
+    return { cat: 'famille', sub: 'Remboursement reçu', confidence: 'high' }
   if (isCredit)
     return { cat: 'revenus', sub: 'Virement entrant', confidence: 'medium' }
 
@@ -203,44 +209,69 @@ export function makeId(dateOpe, libelleRaw, montant) {
  * @param {string} raw – Libellé brut issu du parser PDF
  * @returns {string}   – Libellé lisible, normalisé
  */
-export function cleanLibelle(raw) {
+/**
+ * Nettoyage minimal universel — préfixes bancaires standards seulement.
+ * Utilisé pour les imports Gemini/CSV dont les libellés sont déjà propres.
+ */
+export function cleanLibelleGeneric(raw) {
   return raw
     .replace(/carte\s+x\d+\s*/i, '')
     .replace(/prlv\s+/gi, '')
     .replace(/virement\s+(web\s+)?/i, '')
-    .replace(/vir inst (vers|de)\s+/i, '→ ')       // virements sortants (avec ou sans "de")
-    .replace(/^De\s+(?=\w)/i, '')                  // article résiduel "De Monsieur Vassenet..."
-    .replace(/\s+\d{2}\/\d{2,4}\s*$/, '')        // date carte CA : "20/03" ou "20/03/2026" en fin
-    .replace(/\s+\d{2}\/\s*$/, '')                // date carte CA coupée par pdfjs : "20/"
-    .replace(/\d{2}\/\d{2}$/, '')                 // fallback ancien pattern
-    .replace(/paypal4nfj[\w\/]*/gi, '')
-    .replace(/\s+\d{2}-\d{4}\s*$/i, '')           // période résiduelle : "05-2025" en fin
-    .replace(/\s+FACTURE\S*/gi, '')               // numéros de facture (ex: FACTURE260203000065)
-    .replace(/\s+MANDAT\S*/gi, '')                // références mandat SEPA (ex: MANDATFR81EAU10...)
-    .replace(/\s+\d{10,}/g, '')                   // séquences numériques longues ≥ 10 chiffres
-    .replace(/[A-Z]{2}\d{8,}/g, '')               // codes type MA9079137155 / FR83ZZZ (collés ou séparés)
-    .replace(/\s+[A-Z]{2}\d{1,2}[A-Z0-9]{8,}/g, '') // IBAN/BIC avec espace avant (FR83ZZZ, IC000...)
-    .replace(/\s+\d{4}[A-Z][A-Z0-9]{4,}/g, '')   // codes alphanum débutant par 4 chiffres (2148FR81EAU...)
-    .replace(/[A-Z0-9]{20,}/g, '')                // tokens ≥20 chars tout majuscule = ref banque résiduelle
-    .replace(/\s+E\s+Logemen\b.*/i, '')            // artefact PDF loyer : "E Logemen Logement 44 rue Garnier Pages..."
-    .replace(/\s+(Loyer|Logement)\s+\d+.*/i, '') // artefact PDF loyer : "Loyer 4 Loyer 44 garnier PagesLoyer..."
-    .replace(/\s+-prelev\b.*/i, '')               // suffixe prélèvement CA : "-prelev ..."
-    .replace(/\s+Production-m\b/i, '')            // code agence Macif résiduel
-    .replace(/\s+Auchan\s+Telecom\b.*/i, '')      // SEPA Bouygues résiduel : "Prlv Auchan Telecom Fact N.FM..."
-    .replace(/\s+Box[A-Z0-9]{4,}\b.*/i, '')      // ref contrat Bouygues : "BoxBT1150ULPJS28"
-    .replace(/\s+Free\s+Haut\w*/i, '')            // produit Free Box : "Free Hautdebit"
-    .replace(/\s+[a-f0-9]{8}\b.*/i, '')           // hash hex 8 chars : "Game Joy f21ebd7a Pa"
-    .replace(/\s+(\w{4,})\s+\1\w*\s*$/i, '')     // mot dupliqué en fin PDF : "Spotify SpotifySpotify"
-    .replace(/\s+D\d{7,}\s+\d{7,}/i, '')          // réf dossier remboursement : "D483533614 483533614"
-    .replace(/\s+\d+\s+rue\b.*/i, '')             // adresse résiduelle : "561 rue George..."
-    .replace(/\s+core$/i, '')                     // suffixe "Core" ajouté par CA
-    .replace(/[,\/]\s*$/, '')                      // slash ou virgule résiduels en fin (PayPal "S./" ou "Cie,")
-    .replace(/^\w{1,6}\*(?:\w{1,5}\s+)?/i, '')   // préfixe acquéreur CB : "Mp*", "Uep*dac "
-    .replace(/\s+Dac\s+[A-Z][a-z]{0,4}\s*$/i, '') // code acquéreur résiduel : "Dac Vl"
-    .replace(/^E\.?\s*Lecler[ece]+\b/i, 'E.Leclerc') // normalise variantes : "E. Leclerc", "E.leclere"
+    .replace(/vir inst (vers|de)\s+/i, '→ ')
+    .replace(/^De\s+(?=\w)/i, '')
     .replace(/\s{2,}/g, ' ')
     .trim()
-    .replace(/^[a-z]/, c => c.toUpperCase())          // capitalise 1ère lettre si minuscule (ex: "carrefour")
+    .replace(/^[a-z]/, c => c.toUpperCase())
+}
+
+/**
+ * Nettoyage complet spécifique CA — artefacts PDF Crédit Agricole.
+ * À utiliser uniquement pour les relevés CA (parseCA, onRecategorize sur transactions CA).
+ */
+export function cleanLibelleCA(raw) {
+  return raw
+    .replace(/carte\s+x\d+\s*/i, '')
+    .replace(/prlv\s+/gi, '')
+    .replace(/virement\s+(web\s+)?/i, '')
+    .replace(/vir inst (vers|de)\s+/i, '→ ')
+    .replace(/^De\s+(?=\w)/i, '')
+    .replace(/\s+\d{2}\/\d{2,4}\s*$/, '')
+    .replace(/\s+\d{2}\/\s*$/, '')
+    .replace(/\d{2}\/\d{2}$/, '')
+    .replace(/paypal4nfj[\w\/]*/gi, '')
+    .replace(/\s+\d{2}-\d{4}\s*$/i, '')
+    .replace(/\s+FACTURE\S*/gi, '')
+    .replace(/\s+MANDAT\S*/gi, '')
+    .replace(/\s+\d{10,}/g, '')
+    .replace(/[A-Z]{2}\d{8,}/g, '')
+    .replace(/\s+[A-Z]{2}\d{1,2}[A-Z0-9]{8,}/g, '')
+    .replace(/\s+\d{4}[A-Z][A-Z0-9]{4,}/g, '')
+    .replace(/[A-Z0-9]{20,}/g, '')
+    .replace(/\s+E\s+Logemen\b.*/i, '')
+    .replace(/\s+(Loyer|Logement)\s+\d+.*/i, '')
+    .replace(/\s+-prelev\b.*/i, '')
+    .replace(/\s+Production-m\b/i, '')
+    .replace(/\s+Auchan\s+Telecom\b.*/i, '')
+    .replace(/\s+Box[A-Z0-9]{4,}\b.*/i, '')
+    .replace(/\s+Free\s+Haut\w*/i, '')
+    .replace(/\s+[a-f0-9]{8}\b.*/i, '')
+    .replace(/\s+(\w{4,})\s+\1\w*\s*$/i, '')
+    .replace(/\s+D\d{7,}\s+\d{7,}/i, '')
+    .replace(/\s+\d+\s+rue\b.*/i, '')
+    .replace(/\s+core$/i, '')
+    .replace(/[,\/]\s*$/, '')
+    .replace(/^\w{1,6}\*(?:\w{1,5}\s+)?/i, '')
+    .replace(/\s+Dac\s+[A-Z][a-z]{0,4}\s*$/i, '')
+    .replace(/^E\.?\s*Lecler[ece]+\b/i, 'E.Leclerc')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .replace(/^[a-z]/, c => c.toUpperCase())
+}
+
+/** Routeur rétrocompatible — utilise CA par défaut pour ne pas casser les imports existants */
+export function cleanLibelle(raw) {
+  return cleanLibelleCA(raw)
 }
 
 

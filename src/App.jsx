@@ -19,7 +19,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { categorize, cleanLibelle, computeIsExceptionnel } from './utils/parser.js'
+import { categorize, cleanLibelleCA, cleanLibelleGeneric, computeIsExceptionnel } from './utils/parser.js'
 import { deriveKey, encrypt, decrypt, newSalt }             from './utils/crypto.js'
 import { C, S }                                             from './theme.js'
 import { KEY, KEY_BACKUP, KEY_ENCRYPTION, KEY_API, SCHEMA_VERSION } from './constants.js'
@@ -260,7 +260,7 @@ export default function App() {
       // Recatégorisation au démarrage pour prendre en compte les nouvelles règles
       const txs = decrypted.transactions
         ? dedupeById(decrypted.transactions.map(t =>
-            t.corrected ? t : { ...t, libelle: cleanLibelle(t.libelleRaw || t.libelle), ...categorize(t.libelleRaw, t.isCredit, cr, nom) }
+            t.corrected ? t : { ...t, libelle: (t.banque === 'Crédit Agricole' ? cleanLibelleCA : cleanLibelleGeneric)(t.libelleRaw || t.libelle), ...categorize(t.libelleRaw, t.isCredit, cr, nom) }
           ))
         : []
       setState({ ...defaultState(), ...decrypted, transactions: txs })
@@ -288,7 +288,7 @@ export default function App() {
     const nom = saved.profile?.nom || ''
     const txs = saved.transactions
       ? dedupeById(saved.transactions.map(t =>
-          t.corrected ? t : { ...t, libelle: cleanLibelle(t.libelleRaw || t.libelle), ...categorize(t.libelleRaw, t.isCredit, cr, nom) }
+          t.corrected ? t : { ...t, libelle: (t.banque === 'Crédit Agricole' ? cleanLibelleCA : cleanLibelleGeneric)(t.libelleRaw || t.libelle), ...categorize(t.libelleRaw, t.isCredit, cr, nom) }
         ))
       : []
     return { ...defaultState(), ...saved, transactions: txs }
@@ -383,7 +383,7 @@ export default function App() {
     let changed = 0
     const newTxs = dedupeById(state.transactions.map(t => {
       if (t.corrected) return t
-      const newLibelle = cleanLibelle(t.libelleRaw || t.libelle)
+      const newLibelle = (t.banque === 'Crédit Agricole' ? cleanLibelleCA : cleanLibelleGeneric)(t.libelleRaw || t.libelle)
       const newCatRes  = categorize(t.libelleRaw, t.isCredit, cr, state.profile?.nom || '')
       if (newCatRes.cat !== t.cat || newCatRes.sub !== t.sub) changed++
       return { ...t, libelle: newLibelle, ...newCatRes }
