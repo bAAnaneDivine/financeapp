@@ -37,6 +37,7 @@ import Import       from './components/Import.jsx'
 import Parametres   from './components/Parametres.jsx'
 import Onboarding   from './components/Onboarding.jsx'
 import UnlockForm   from './components/UnlockForm.jsx'
+import Toast        from './components/Toast.jsx'
 
 // ─── Helpers internes ─────────────────────────────────────────────────────────
 /**
@@ -97,6 +98,16 @@ function migrateState(d) {
     }))
 
     d._v = 3
+  }
+
+  if (v < 4) {
+    // Marque les utilisateurs existants comme ayant déjà fait l'onboarding
+    // — évite de leur afficher l'onboarding à nouveau après la mise à jour
+    d.profile = d.profile || {}
+    if (!d.profile._onboardingDone) {
+      d.profile._onboardingDone = (d.transactions && d.transactions.length > 0) || !!d.profile.nom
+    }
+    d._v = 4
   }
 
   return d
@@ -214,7 +225,7 @@ export function disableEncryption(state) {
 const defaultState = () => ({
   _v:           SCHEMA_VERSION,
   transactions: [],
-  profile:      { banque: '', devise: 'EUR', langue: 'fr' },
+  profile:      { banque: '', devise: 'EUR', langue: 'fr', _onboardingDone: false },
   imports:      [],
   budgets:      {},
   objectifs:    [],
@@ -296,13 +307,23 @@ export default function App() {
   const [page,          setPage]          = useState('dashboard')
   const [apiKey,        setApiKey]        = useState(() => { try { return localStorage.getItem(KEY_API) || null } catch { return null } })
   const [recatFeedback, setRecatFeedback] = useState(null)
+  const [toast,         setToast]         = useState(null)
+
+  const showToast = (message, type = 'error') => setToast({ message, type })
 
   // Persistance automatique à chaque changement de state
   useEffect(() => {
+    const handleQuota = (e) => {
+      if (e?.name === 'QuotaExceededError' || e?.code === 22) {
+        showToast('Stockage navigateur plein — exporte tes données en JSON puis supprime les anciennes importations.', 'warn')
+      }
+    }
     if (cryptoKey) {
-      saveEncrypted(state, cryptoKey).catch(() => save(state)) // fallback si crypto échoue
+      saveEncrypted(state, cryptoKey).catch((e) => {
+        try { save(state) } catch (e2) { handleQuota(e2) }
+      })
     } else {
-      save(state)
+      try { save(state) } catch (e) { handleQuota(e) }
     }
   }, [state, cryptoKey])
 
@@ -406,7 +427,7 @@ export default function App() {
       setState({ ...defaultState(), ...data, transactions: dedupeById(data.transactions) })
       setPage('dashboard')
     } catch (e) {
-      alert(`Erreur lors de la restauration : ${e.message}`)
+      showToast(`Erreur lors de la restauration : ${e.message}`)
     }
   }
 
@@ -425,7 +446,7 @@ export default function App() {
     </div>
   )
 
-  if (!state.profile) return <Onboarding onDone={onProfile} onSetApiKey={onSetApiKey} />
+  if (!state.profile?._onboardingDone) return <Onboarding onDone={(profile) => { onProfile({ ...profile, _onboardingDone: true }) }} onSetApiKey={onSetApiKey} />
 
   // ── Navigation principale ────────────────────────────────────────────────────
 
@@ -488,11 +509,12 @@ export default function App() {
       {page === 'transactions' && <Transactions transactions={state.transactions} onCorrect={onCorrect} />}
       {page === 'budget'       && <Budget       transactions={state.transactions} budgets={state.budgets} objectifs={state.objectifs} notes={state.notes} journal={state.journal || []} onSaveBudgets={onSaveBudgets} onSaveObjectifs={onSaveObjectifs} onSaveNote={onSaveNote} onSaveJournal={onSaveJournal} />}
       {page === 'epargne'      && <Epargne      comptes={state.comptes || []} transactions={state.transactions} onSaveComptes={onSaveComptes} />}
-      {page === 'partage'      && <Partage      partage={state.partage || { membres: [], depenses: [], settlements: [] }} onSavePartage={onSavePartage} />}
+      {page === 'partage'      && <Partage      partage={state.partage || { membres: [], depenses: [], settlements: [] }} onSavePartage={onSavePartage} showToast={showToast} />}
       {page === 'analyse'      && <Analyse      transactions={state.transactions} profile={state.profile} journal={state.journal || []} apiKey={apiKey} onSetApiKey={onSetApiKey} budgets={state.budgets || {}} />}
       {page === 'forensic'     && <Forensic     transactions={state.transactions} />}
-      {page === 'import'       && <Import       transactions={state.transactions} customRules={state.customRules || []} imports={state.imports || []} recatFeedback={recatFeedback} nom={state.profile?.nom || ''} apiKey={apiKey} onImport={onImport} onReset={onReset} onRecategorize={onRecategorize} onSaveCustomRules={onSaveCustomRules} onExportJSON={onExportJSON} onRestoreJSON={onRestoreJSON} />}
+      {page === 'import'       && <Import       transactions={state.transactions} customRules={state.customRules || []} imports={state.imports || []} recatFeedback={recatFeedback} nom={state.profile?.nom || ''} apiKey={apiKey} onImport={onImport} onReset={onReset} onRecategorize={onRecategorize} onSaveCustomRules={onSaveCustomRules} onExportJSON={onExportJSON} onRestoreJSON={onRestoreJSON} showToast={showToast} />}
       {page === 'parametres'   && <Parametres   profile={state.profile} apiKey={apiKey} transactions={state.transactions} onSaveProfile={onProfile} onSetApiKey={onSetApiKey} onExportJSON={onExportJSON} onReset={onReset} onEnableEncryption={onEnableEncryption} onDisableEncryption={onDisableEncryption} isEncrypted={!!cryptoKey} />}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   )
 }

@@ -28,7 +28,7 @@ import MappingUI from './MappingUI.jsx'
 
 
 // ─── IMPORT ───────────────────────────────────────────────────────────────────
-function Import({ transactions, customRules = [], imports = [], recatFeedback = null, nom = '', apiKey = null, onImport, onReset, onRecategorize, onSaveCustomRules, onExportJSON, onRestoreJSON }) {
+function Import({ transactions, customRules = [], imports = [], recatFeedback = null, nom = '', apiKey = null, onImport, onReset, onRecategorize, onSaveCustomRules, onExportJSON, onRestoreJSON, showToast }) {
   const [drag, setDrag]               = useState(false)
   const [loading, setLoading]         = useState(false)
   const [preview, setPreview]         = useState(null)
@@ -210,7 +210,7 @@ function Import({ transactions, customRules = [], imports = [], recatFeedback = 
       const newRules = incoming.filter(r => !existingPatterns.has(r.pattern))
       onSaveCustomRules([...customRules, ...newRules])
     } catch (e) {
-      alert(`Erreur import règles : ${e.message}`)
+      showToast?.(`Erreur import règles : ${e.message}`)
     }
   }
 

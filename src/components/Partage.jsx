@@ -13,7 +13,7 @@ import { useState, useMemo } from 'react'
 import { computeStats } from '../utils/parser.js'
 import { C, S, fmt, fmtD, fmtMonth } from '../theme.js'
 
-function Partage({ partage, onSavePartage }) {
+function Partage({ partage, onSavePartage, showToast }) {
   const membres     = partage.membres   || []
   const depenses    = partage.depenses  || []
   const settlements = partage.settlements || []
@@ -99,7 +99,7 @@ function Partage({ partage, onSavePartage }) {
     const montant = parseFloat(form.montant.replace(',', '.'))
     if (!form.label.trim() || !montant || !form.payeurId) return
     const sumParts = Object.values(form.parts).reduce((s, v) => s + (parseFloat(v) || 0), 0)
-    if (Math.abs(sumParts - 100) > 0.5) { alert('La somme des parts doit être égale à 100%'); return }
+    if (Math.abs(sumParts - 100) > 0.5) { showToast?.('La somme des parts doit être égale à 100%', 'warn'); return }
 
     const dep = { id: Date.now().toString(), label: form.label.trim(), montant, date: form.date, payeurId: form.payeurId, parts: form.parts }
     onSavePartage({ ...partage, depenses: [dep, ...depenses] })
