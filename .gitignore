@@ -1,0 +1,23 @@
+# Dépendances
+node_modules/
+
+# Build
+dist/
+
+# Variables d'environnement
+.env
+.env.local
+.env.*.local
+
+# Données personnelles — ne pas publier
+maël_rules_backup.json
+*.json.bak
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.suo
+*.user
