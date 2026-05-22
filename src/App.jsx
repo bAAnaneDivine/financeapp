@@ -301,7 +301,8 @@ export default function App() {
   const [recatFeedback, setRecatFeedback] = useState(null)
   const [toast,         setToast]         = useState(null)
 
-  const showToast = (message, type = 'error') => setToast({ message, type })
+  const showToast = (message, type = 'error', onConfirm = null, confirmLabel = 'Confirmer') =>
+    setToast({ message, type, onConfirm, confirmLabel })
 
   // Persistance automatique à chaque changement de state
   useEffect(() => {
@@ -491,7 +492,7 @@ export default function App() {
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 11, color: '#2a2a3a', marginRight: 12 }}>{state.transactions.length} tx</span>
         <button
-          onClick={() => { if (confirm('Effacer toutes les données et recommencer l\'onboarding ?')) { localStorage.removeItem(KEY); window.location.reload() } }}
+          onClick={() => showToast('Effacer toutes les données ?', 'warn', () => { localStorage.removeItem(KEY); window.location.reload() }, 'Effacer')}
           style={{ background: 'transparent', border: 'none', color: '#2a2a3a', fontSize: 11, cursor: 'pointer', padding: '0 4px' }}
           title="Réinitialiser">↺
         </button>
@@ -511,7 +512,7 @@ export default function App() {
         {page === 'forensic'  && <Forensic     transactions={state.transactions} />}
         {page === 'import'    && <Import       transactions={state.transactions} customRules={state.customRules || []} imports={state.imports || []} recatFeedback={recatFeedback} nom={state.profile?.nom || ''} apiKey={apiKey} onImport={onImport} onReset={onReset} onRecategorize={onRecategorize} onSaveCustomRules={onSaveCustomRules} onExportJSON={onExportJSON} onRestoreJSON={onRestoreJSON} showToast={showToast} />}
       </Suspense>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} onConfirm={toast.onConfirm} confirmLabel={toast.confirmLabel} />}
     </div>
   )
 }

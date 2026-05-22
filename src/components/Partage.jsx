@@ -18,8 +18,9 @@ function Partage({ partage, onSavePartage, showToast }) {
   const depenses    = partage.depenses  || []
   const settlements = partage.settlements || []
 
-  const [subTab, setSubTab]   = useState('solde')   // 'solde' | 'depenses' | 'membres'
+  const [subTab, setSubTab]   = useState('solde')
   const [showForm, setShowForm] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState(null) // { id, type: 'depense'|'membre' }
 
   // Formulaire nouvelle dépense
   const [form, setForm] = useState({ label: '', montant: '', date: new Date().toISOString().slice(0, 10), payeurId: '', parts: {} })
@@ -286,8 +287,15 @@ function Partage({ partage, onSavePartage, showToast }) {
                   </div>
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 600, color: C.gold }}>{fmt(parseFloat(dep.montant) || 0)}</div>
-                <button onClick={() => { if (confirm(`Supprimer "${dep.label}" ?`)) deleteDepense(dep.id) }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 16, padding: '4px 6px' }}>✕</button>
+                {pendingDelete?.id === dep.id ? (
+                  <span style={{ display: 'flex', gap: 4 }}>
+                    <button onClick={() => { deleteDepense(dep.id); setPendingDelete(null) }} style={{ ...S.ghost, fontSize: 11, color: C.danger, borderColor: C.danger, padding: '2px 6px' }}>Oui</button>
+                    <button onClick={() => setPendingDelete(null)} style={{ ...S.ghost, fontSize: 11, padding: '2px 6px' }}>Non</button>
+                  </span>
+                ) : (
+                  <button onClick={() => setPendingDelete({ id: dep.id, type: 'depense' })}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 16, padding: '4px 6px' }}>✕</button>
+                )}
               </div>
             )
           })}
@@ -315,10 +323,16 @@ function Partage({ partage, onSavePartage, showToast }) {
             <div key={m.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
               <div style={{ width: 40, height: 40, borderRadius: '50%', background: m.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 700, color: '#fff' }}>{m.nom[0]}</div>
               <div style={{ flex: 1, fontSize: 15, fontWeight: 500, color: C.text }}>{m.nom}</div>
-              <button onClick={() => {
-                if (!confirm(`Supprimer ${m.nom} ? Ses dépenses seront conservées.`)) return
-                onSavePartage({ ...partage, membres: membres.filter(x => x.id !== m.id) })
-              }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 16, padding: '4px 8px' }}>✕</button>
+              {pendingDelete?.id === m.id ? (
+                <span style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, color: C.warn }}>Supprimer {m.nom} ?</span>
+                  <button onClick={() => { onSavePartage({ ...partage, membres: membres.filter(x => x.id !== m.id) }); setPendingDelete(null) }} style={{ ...S.ghost, fontSize: 11, color: C.danger, borderColor: C.danger, padding: '2px 6px' }}>Oui</button>
+                  <button onClick={() => setPendingDelete(null)} style={{ ...S.ghost, fontSize: 11, padding: '2px 6px' }}>Non</button>
+                </span>
+              ) : (
+                <button onClick={() => setPendingDelete({ id: m.id, type: 'membre' })}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 16, padding: '4px 8px' }}>✕</button>
+              )}
             </div>
           ))}
         </div>

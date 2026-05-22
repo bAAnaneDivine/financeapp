@@ -33,7 +33,8 @@ const compteIcon = (type) => COMPTE_TYPES.find(t => t.id === type)?.icon || '�
 function Epargne({ comptes, transactions, onSaveComptes }) {
   const [importing, setImporting] = useState(false)
   const [importErr, setImportErr] = useState(null)
-  const [selCompte, setSelCompte] = useState(null)   // id du compte ouvert en détail
+  const [selCompte, setSelCompte] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null) // { compteId, type: 'releve'|'compte' }
 
   // Formulaire saisie manuelle (nouveau compte ou mise à jour de solde)
   const FORM_EMPTY = { type: 'Livret A', nom: '', solde: '', date: new Date().toISOString().slice(0, 10), compteId: null }
@@ -377,19 +378,24 @@ function Epargne({ comptes, transactions, onSaveComptes }) {
                           ↻ Nouveau solde
                         </button>
                         {/* Supprimer le dernier relevé */}
-                        <button onClick={(e) => {
-                          e.stopPropagation()
-                          if (!confirm(`Supprimer le relevé du ${fmtD(last.dateReleve)} ?`)) return
-                          const newHisto = compte.historique.slice(0, -1)
-                          if (!newHisto.length) {
-                            onSaveComptes(comptes.filter(c => c.id !== compte.id))
-                            setSelCompte(null)
-                          } else {
-                            onSaveComptes(comptes.map(c => c.id === compte.id ? { ...c, historique: newHisto } : c))
-                          }
-                        }} style={{ ...S.ghost, fontSize: 12, color: C.danger, borderColor: C.danger }}>
-                          🗑 Dernier relevé
-                        </button>
+                        {pendingDelete?.compteId === compte.id ? (
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <span style={{ fontSize: 11, color: C.warn }}>Confirmer ?</span>
+                            <button onClick={(e) => {
+                              e.stopPropagation()
+                              const newHisto = compte.historique.slice(0, -1)
+                              if (!newHisto.length) { onSaveComptes(comptes.filter(c => c.id !== compte.id)); setSelCompte(null) }
+                              else { onSaveComptes(comptes.map(c => c.id === compte.id ? { ...c, historique: newHisto } : c)) }
+                              setPendingDelete(null)
+                            }} style={{ ...S.ghost, fontSize: 11, color: C.danger, borderColor: C.danger, padding: '3px 8px' }}>Oui</button>
+                            <button onClick={(e) => { e.stopPropagation(); setPendingDelete(null) }} style={{ ...S.ghost, fontSize: 11, padding: '3px 8px' }}>Non</button>
+                          </div>
+                        ) : (
+                          <button onClick={(e) => { e.stopPropagation(); setPendingDelete({ compteId: compte.id }) }}
+                            style={{ ...S.ghost, fontSize: 12, color: C.danger, borderColor: C.danger }}>
+                            🗑 Dernier relevé
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
