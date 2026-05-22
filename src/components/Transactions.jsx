@@ -10,7 +10,7 @@
  *  - Export CSV de la sélection filtrée
  */
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { CATEGORIES, categorize, computeIsExceptionnel, cleanLibelle } from '../utils/parser.js'
 import { C, S, fmt, fmtD } from '../theme.js'
 import { exportCSV } from '../helpers.js'

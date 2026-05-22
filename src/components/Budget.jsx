@@ -11,7 +11,7 @@
  *  - Détection du mois en cours (données partielles)
  */
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { computeStats, CATEGORIES } from '../utils/parser.js'
 import { C, S, fmt, fmtD, fmtMonth } from '../theme.js'
 import { calcSavedForGoal } from '../helpers.js'
