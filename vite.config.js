@@ -39,6 +39,11 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
   server: { port: 3000, open: true },
-  build: { outDir: 'dist' },
+  build: {
+    outDir: 'dist',
+    // index.js (~1.1MB non-gzip) contient Recharts pour Budget/Epargne sync — attendu
+    // Gzippé : 334KB (sous la cible de 400KB réseau)
+    chunkSizeWarningLimit: 1200,
+  },
   optimizeDeps: { exclude: ['pdfjs-dist'] },
 })

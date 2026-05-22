@@ -18,26 +18,28 @@
  *                            UnlockForm, ResetButton, ChatIA, MappingUI
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { categorize, cleanLibelleCA, cleanLibelleGeneric, computeIsExceptionnel } from './utils/parser.js'
 import { deriveKey, encrypt, decrypt, newSalt }             from './utils/crypto.js'
 import { C, S }                                             from './theme.js'
 import { KEY, KEY_BACKUP, KEY_ENCRYPTION, KEY_API, SCHEMA_VERSION } from './constants.js'
 import { downloadJSON }                                     from './helpers.js'
 
-// ─── Composants extraits ───────────────────────────────────────────────────────
-import Dashboard    from './components/Dashboard.jsx'
+// ─── Composants sync (navigation quotidienne — chargés immédiatement) ─────────
 import Transactions from './components/Transactions.jsx'
 import Budget       from './components/Budget.jsx'
 import Epargne      from './components/Epargne.jsx'
 import Partage      from './components/Partage.jsx'
-import Analyse      from './components/Mensuel.jsx'
-import Forensic     from './components/Forensic.jsx'
-import Import       from './components/Import.jsx'
 import Parametres   from './components/Parametres.jsx'
 import Onboarding   from './components/Onboarding.jsx'
 import UnlockForm   from './components/UnlockForm.jsx'
 import Toast        from './components/Toast.jsx'
+
+// ─── Composants lazy (lourds / occasionnels — chargés à la demande) ───────────
+const Dashboard = lazy(() => import('./components/Dashboard.jsx'))
+const Analyse   = lazy(() => import('./components/Mensuel.jsx'))
+const Forensic  = lazy(() => import('./components/Forensic.jsx'))
+const Import    = lazy(() => import('./components/Import.jsx'))
 
 // ─── Helpers internes ─────────────────────────────────────────────────────────
 /**
@@ -496,15 +498,19 @@ export default function App() {
       </nav>
 
       {/* ── Pages ────────────────────────────────────────────────────────────── */}
-      {page === 'dashboard'    && <Dashboard    transactions={state.transactions} profile={state.profile} objectifs={state.objectifs || []} budgets={state.budgets || {}} comptes={state.comptes || []} onNavigate={setPage} />}
+      {/* Composants sync — pas de Suspense */}
       {page === 'transactions' && <Transactions transactions={state.transactions} onCorrect={onCorrect} />}
       {page === 'budget'       && <Budget       transactions={state.transactions} budgets={state.budgets} objectifs={state.objectifs} notes={state.notes} journal={state.journal || []} onSaveBudgets={onSaveBudgets} onSaveObjectifs={onSaveObjectifs} onSaveNote={onSaveNote} onSaveJournal={onSaveJournal} />}
       {page === 'epargne'      && <Epargne      comptes={state.comptes || []} transactions={state.transactions} onSaveComptes={onSaveComptes} />}
       {page === 'partage'      && <Partage      partage={state.partage || { membres: [], depenses: [], settlements: [] }} onSavePartage={onSavePartage} showToast={showToast} />}
-      {page === 'analyse'      && <Analyse      transactions={state.transactions} profile={state.profile} journal={state.journal || []} apiKey={apiKey} onSetApiKey={onSetApiKey} budgets={state.budgets || {}} />}
-      {page === 'forensic'     && <Forensic     transactions={state.transactions} />}
-      {page === 'import'       && <Import       transactions={state.transactions} customRules={state.customRules || []} imports={state.imports || []} recatFeedback={recatFeedback} nom={state.profile?.nom || ''} apiKey={apiKey} onImport={onImport} onReset={onReset} onRecategorize={onRecategorize} onSaveCustomRules={onSaveCustomRules} onExportJSON={onExportJSON} onRestoreJSON={onRestoreJSON} showToast={showToast} />}
       {page === 'parametres'   && <Parametres   profile={state.profile} apiKey={apiKey} transactions={state.transactions} onSaveProfile={onProfile} onSetApiKey={onSetApiKey} onExportJSON={onExportJSON} onReset={onReset} onEnableEncryption={onEnableEncryption} onDisableEncryption={onDisableEncryption} isEncrypted={!!cryptoKey} />}
+      {/* Composants lazy — chargés à la première navigation */}
+      <Suspense fallback={<div style={{ color: C.muted, padding: 40, textAlign: 'center' }}>Chargement…</div>}>
+        {page === 'dashboard' && <Dashboard    transactions={state.transactions} profile={state.profile} objectifs={state.objectifs || []} budgets={state.budgets || {}} comptes={state.comptes || []} onNavigate={setPage} />}
+        {page === 'analyse'   && <Analyse      transactions={state.transactions} profile={state.profile} journal={state.journal || []} apiKey={apiKey} onSetApiKey={onSetApiKey} budgets={state.budgets || {}} />}
+        {page === 'forensic'  && <Forensic     transactions={state.transactions} />}
+        {page === 'import'    && <Import       transactions={state.transactions} customRules={state.customRules || []} imports={state.imports || []} recatFeedback={recatFeedback} nom={state.profile?.nom || ''} apiKey={apiKey} onImport={onImport} onReset={onReset} onRecategorize={onRecategorize} onSaveCustomRules={onSaveCustomRules} onExportJSON={onExportJSON} onRestoreJSON={onRestoreJSON} showToast={showToast} />}
+      </Suspense>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   )
